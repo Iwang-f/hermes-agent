@@ -103,7 +103,7 @@ def _scenario(root, victim) -> object:
             tui.resize(cols)
             tui.wait_quiet(1.0)
         cells.add("clarify_card_survives_resize",
-                  _visible_once(tui, ["ask 1 questions", f"▸ {QUESTION}", "1. red", "2. blue"]), tui.dump())
+                  _visible_once(tui, ["ask 1 question", f"▸ {QUESTION}", "1. red", "2. blue"]), tui.dump())
         tui.key("Down")
         tui.wait_for(lambda t: "▸ 2. blue" in t, history=False)
         tui.key("Enter")
