@@ -358,11 +358,6 @@ export type GroupRoomPrompt = GroupPrompt & {
   thread?: string
 }
 
-const RECOMMENDED_LABEL = '(Recommended)'
-
-const bareChoice = (choice: string): string =>
-  choice.endsWith(RECOMMENDED_LABEL) ? choice.slice(0, -RECOMMENDED_LABEL.length).trim() : choice
-
 /** A sub-question normalized for rendering: one card row, one answer. */
 interface GroupClarifyQuestion {
   choices: string[]
@@ -412,7 +407,7 @@ export function GroupClarifyCard({ entry, members }: GroupClarifyCardProps) {
     const chosen = picked[q.qid] || []
 
     if (chosen.length) {
-      return q.multiSelect ? JSON.stringify(chosen.map(bareChoice)) : bareChoice(chosen[0])
+      return q.multiSelect ? JSON.stringify(chosen) : chosen[0]
     }
 
     return isApproval ? '' : (drafts[q.qid] || '').trim()

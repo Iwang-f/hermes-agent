@@ -108,6 +108,8 @@ def _clarify_send_then_wait(fut, *, clarify_id: str, session_key: str, clarify_m
     late.disarm()
     if late.undeliverable:
         return late.undeliverable, False
+    if response == clarify_mod.CANCELLED:
+        return response, False
     if response is None or response == "":
         return f"[user did not respond within {int(timeout / 60)}m]", False
     return response, True

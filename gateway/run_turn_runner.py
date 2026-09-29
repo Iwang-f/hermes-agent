@@ -164,7 +164,7 @@ class TurnRunner:
             or event_type != "tool.started"
             # The adapter's send_clarify IS the user-facing rendering (interactive buttons or the
             # numbered-text fallback), so a progress bubble is pure duplication — and in verbose mode it
-            # dumps the raw tool-call args JSON ({"question": ..., "choices": [...]}) into the chat. Because
+            # dumps the raw tool-call args JSON into the chat. Because
             # the progress queue drains on a background task, that raw JSON typically lands right underneath
             # the rendered prompt (#52374).
             or tool_name == "clarify"
@@ -1350,7 +1350,7 @@ class TurnRunner:
         question, stop at the first the user never answers. The stream/typing re-arm waits for the
         last question — between two cards it only opens a bubble the next boundary closes."""
         from gateway.run_turn_runner_clarify_delivery import UNDELIVERED, UNDELIVERED_DECLINED, UNDELIVERED_NO_SURFACE
-        from tools.clarify_gateway import SKIPPED
+        from tools.clarify_gateway import CANCELLED, SKIPPED
         answers: Dict[str, Any] = {}
         reply: Dict[str, Any] = {"answers": answers, "outcome": "submitted"}
         last = len(questions) - 1
@@ -1358,6 +1358,9 @@ class TurnRunner:
             question = f"{entry['question']}\n{t('gateway.clarify.skip_hint')}"
             raw, answered = self._ask_clarify_question(
                 question, entry["choices"], bool(entry["multi_select"]), rearm=index == last)
+            if raw == CANCELLED:
+                reply["outcome"] = "cancelled"
+                break
             if not answered:
                 # The surface's own no-answer text ("could not be delivered", "did not respond
                 # within Nm") rides along as ``notice``: blank answers alone read as user

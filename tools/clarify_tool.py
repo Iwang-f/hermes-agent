@@ -11,7 +11,6 @@ MAX_QUESTIONS = 5  # independent questions per call
 RECOMMENDED_LABEL = "(Recommended)"
 _UNAVAILABLE = "Clarify tool is not available in this execution context."
 _SHAPE = "Pass questions=[{question, choices?, multi_select?}]; a single question is a one-entry array."
-OUTCOMES = ("submitted", "cancelled", "timed_out", "undelivered")
 
 
 def mark_recommended(choices: List[str]) -> List[str]:
@@ -74,8 +73,6 @@ def _normalize_questions(questions) -> tuple:
 
 
 def _response_status(qid: str, answers: dict, multi: bool) -> tuple:
-    """``(status, user_response)``: ``answered`` with the cleaned answer, ``skipped`` when the user
-    submitted this question empty, ``unanswered`` when the wait ended before it was locked."""
     raw = answers.get(qid)
     cleaned = _clean_answer(raw, multi) if raw not in (None, "") else None
     if cleaned:
