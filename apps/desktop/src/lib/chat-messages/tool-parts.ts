@@ -495,19 +495,13 @@ function skippedClarifyResult(part: Extract<ChatMessagePart, { type: 'tool-call'
   const args = recordFromUnknown(part.args) ?? {}
   const questions = Array.isArray(args.questions) ? args.questions : []
 
-  if (questions.length > 0) {
-    return {
-      responses: questions.map(entry => ({
-        question: firstStringField(recordFromUnknown(entry) ?? {}, ['question']),
-        user_response: ''
-      })),
-      timed_out: true
-    }
-  }
-
   return {
-    question: firstStringField(args, ['question']),
-    user_response: ''
+    outcome: 'cancelled',
+    responses: questions.map(entry => ({
+      question: firstStringField(recordFromUnknown(entry) ?? {}, ['question']),
+      status: 'unanswered',
+      user_response: null
+    }))
   }
 }
 

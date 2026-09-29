@@ -454,7 +454,9 @@ class GatewayInboundMixin:
                     try:
                         await _clarify_adapter.retire_clarify_card(
                             _pending_clarify.clarify_id,
-                            t("gateway.clarify.answered", response=_pending_clarify.response or _raw_clarify_reply))
+                            t("gateway.clarify.answered",
+                              response=_raw_clarify_reply if _pending_clarify.response == _clarify_mod.SKIPPED
+                              else _pending_clarify.response or _raw_clarify_reply))
                     except Exception:
                         logger.debug("Failed to retire clarify card after typed answer", exc_info=True)
             return ""

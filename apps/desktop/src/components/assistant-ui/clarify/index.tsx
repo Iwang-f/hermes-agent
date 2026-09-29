@@ -10,10 +10,9 @@ import { sessionClarifyRequest } from '@/store/clarify'
 
 import { selectMessageRunning } from '../tool/fallback-model'
 
-import { ClarifyToolBatchPending } from './batch-pending'
 import { readClarifyArgs } from './parse'
+import { ClarifyToolPending } from './pending'
 import { ClarifyToolSettled } from './settled'
-import { ClarifyToolSinglePending } from './single-pending'
 import { useUndeliveredClarify } from './use-undelivered'
 
 export const ClarifyTool = (props: ToolCallMessagePartProps) => {
@@ -22,10 +21,10 @@ export const ClarifyTool = (props: ToolCallMessagePartProps) => {
     return <ClarifyToolSettled {...props} />
   }
 
-  return <ClarifyToolPending {...props} />
+  return <ClarifyToolLive {...props} />
 }
 
-export function ClarifyToolPending(props: ToolCallMessagePartProps) {
+function ClarifyToolLive(props: ToolCallMessagePartProps) {
   // The tool row is in whichever session's transcript rendered it — read THAT
   // session's clarify (primary or tile), not the globally-active one.
   const sessionId = useStore(useSessionView().$runtimeId)
@@ -47,24 +46,8 @@ export function ClarifyToolPending(props: ToolCallMessagePartProps) {
     return <ToolFallback {...props} />
   }
 
-  // Batch: the gateway request carries qid-keyed questions. Args alone can't
-  // drive the form (no qids to respond with), so the live form waits for the
-  // request — but the question TEXT is already in the tool args, so paint a
-  // disabled preview immediately instead of a spinner (the single-question
-  // card does the same while request_id races the tool block).
-  if (request?.questions?.length || fromArgs.questions) {
-    return (
-      <ClarifyToolBatchPending
-        fromArgs={fromArgs}
-        onAnswered={() => setAnswered(true)}
-        request={request}
-        undelivered={undelivered}
-      />
-    )
-  }
-
   return (
-    <ClarifyToolSinglePending
+    <ClarifyToolPending
       fromArgs={fromArgs}
       onAnswered={() => setAnswered(true)}
       request={request}

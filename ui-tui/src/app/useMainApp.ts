@@ -42,8 +42,8 @@ import { asRpcResult, rpcErrorMessage } from '../lib/rpc.js'
 import { terminalParityHints } from '../lib/terminalParity.js'
 import {
   buildToolTrailLine,
+  clarifyAnswerText,
   formatAbandonedClarify,
-  formatAbandonedClarifyBatch,
   sameToolTrailGroup,
   toolTrailLabel
 } from '../lib/text.js'
@@ -745,68 +745,48 @@ export function useMainApp(gw: GatewayClient) {
     }
   }, [rpc, stdout, ui.sid])
 
-  const answerClarify = useCallback(
-    (answer: string) => {
-      const clarify = overlay.clarify
+  const cancelClarify = useCallback(() => {
+    const clarify = overlay.clarify
 
-      if (!clarify) {
-        return
-      }
+    if (!clarify) {
+      return
+    }
 
-      const label = toolTrailLabel('clarify')
+    const label = toolTrailLabel('clarify')
 
-      turnController.turnTools = turnController.turnTools.filter(line => !sameToolTrailGroup(label, line))
-      patchTurnState({ turnTrail: turnController.turnTools })
+    turnController.turnTools = turnController.turnTools.filter(line => !sameToolTrailGroup(label, line))
+    patchTurnState({ turnTrail: turnController.turnTools })
 
-      if (!respondToServerRequest(clarify.requestId, { answer })) {
-        // The request already expired (request.cancel raced the keystroke): nothing to answer.
-        patchOverlayState({ clarify: null })
+    if (!respondToServerRequest(clarify.requestId, {})) {
+      // The request already expired (request.cancel raced the keystroke): nothing to answer.
+      patchOverlayState({ clarify: null })
 
-        return
-      }
+      return
+    }
 
-      {
-        if (answer) {
-          turnController.persistedToolLabels.add(label)
-          appendMessage({
-            kind: 'trail',
-            role: 'system',
-            text: '',
-            tools: [buildToolTrailLine('clarify', clarify.question)]
-          })
-          appendMessage({ role: 'user', text: answer })
-          patchUiState({ status: 'running…' })
-        } else {
-          // Esc / Ctrl+C cancel: persist the question + options as a system
-          // line (not a transient "prompt cancelled" flash) so the prompt
-          // survives on screen as standard output, matching the timeout path.
-          appendMessage({
-            role: 'system',
-            text: clarify.questions?.length
-              ? formatAbandonedClarifyBatch(clarify.questions, clarify.answers ?? {}, 'cancelled')
-              : formatAbandonedClarify(clarify.question, clarify.choices, 'cancelled')
-          })
-        }
+    // Esc / Ctrl+C cancel: persist the questions + locked answers as a
+    // system line (not a transient "prompt cancelled" flash) so the prompt
+    // survives on screen as standard output, matching the timeout path.
+    appendMessage({
+      role: 'system',
+      text: formatAbandonedClarify(clarify.questions, clarify.answers ?? {}, 'cancelled')
+    })
+    patchOverlayState({ clarify: null })
+  }, [appendMessage, overlay.clarify])
 
-        patchOverlayState({ clarify: null })
-      }
-    },
-    [appendMessage, overlay.clarify]
-  )
-
-  // Lock one answer of a batch clarify (`clarify.lock` RPC). The overlay stays
+  // Lock one answer of a clarify (`clarify.lock` RPC). The overlay stays
   // up until the server reports no remaining questions — the final lock
   // resolves the server request and the turn continues.
   const answerClarifyQuestion = useCallback(
     (qid: string, answer: string) => {
       const clarify = overlay.clarify
 
-      if (!clarify?.questions?.length) {
+      if (!clarify) {
         return
       }
 
       rpc<ClarifyLockResponse>('clarify.lock', {
-        answer,
+        answer: answer.trim() ? answer : null,
         question_id: qid,
         request_id: clarify.requestId
       }).then(r => {
@@ -814,7 +794,8 @@ export function useMainApp(gw: GatewayClient) {
           return
         }
 
-        const answers = { ...(clarify.answers ?? {}), [qid]: answer }
+        const multi = clarify.questions.find(q => q.qid === qid)?.multiSelect
+        const answers = { ...(clarify.answers ?? {}), [qid]: multi ? clarifyAnswerText(answer) : answer }
 
         if (r.status === 'expired') {
           patchOverlayState({ clarify: null })
@@ -828,8 +809,7 @@ export function useMainApp(gw: GatewayClient) {
           return
         }
 
-        // Batch complete: persist the whole Q&A set as one user-visible
-        // block (mirrors the single-question trail + answer lines).
+        // Batch complete: persist the whole Q&A set as one user-visible block.
         const label = toolTrailLabel('clarify')
 
         turnController.turnTools = turnController.turnTools.filter(line => !sameToolTrailGroup(label, line))
@@ -839,14 +819,12 @@ export function useMainApp(gw: GatewayClient) {
           kind: 'trail',
           role: 'system',
           text: '',
-          tools: [buildToolTrailLine('clarify', clarifyQuestionCountLabel(clarify.questions!.length))]
+          tools: [buildToolTrailLine('clarify', clarifyQuestionCountLabel(clarify.questions.length))]
         })
         appendMessage({
           role: 'user',
-          text: clarify
-            .questions!.map(
-              q => `${q.question} → ${answers[q.qid]?.trim() ? answers[q.qid] : t('session.main.skipped')}`
-            )
+          text: clarify.questions
+            .map(q => `${q.question} → ${answers[q.qid]?.trim() ? answers[q.qid] : t('session.main.skipped')}`)
             .join('\n')
         })
         patchUiState({ status: 'running…' })
@@ -897,8 +875,8 @@ export function useMainApp(gw: GatewayClient) {
 
   const { pagerPageSize } = useInputHandlers({
     actions: {
-      answerClarify,
       appendMessage,
+      cancelClarify,
       die,
       dispatchSubmission,
       guardBusySessionSwitch: session.guardBusySessionSwitch,
@@ -1318,11 +1296,11 @@ export function useMainApp(gw: GatewayClient) {
       activateLiveSession: session.activateLiveSession,
       closeLiveSession,
       answerApproval,
-      answerClarify,
       answerClarifyQuestion,
       answerSecret,
       answerSudo,
       answerVaultUnlock,
+      cancelClarify,
       clearSelection,
       newLiveSession: () => session.newLiveSession(),
       newPromptSession,
@@ -1342,11 +1320,11 @@ export function useMainApp(gw: GatewayClient) {
     }),
     [
       answerApproval,
-      answerClarify,
       answerClarifyQuestion,
       answerSecret,
       answerSudo,
       answerVaultUnlock,
+      cancelClarify,
       clearSelection,
       closeLiveSession,
       newPromptSession,

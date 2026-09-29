@@ -18,9 +18,7 @@ logger = logging.getLogger(__name__)
 
 UNDELIVERED = "[clarify prompt could not be delivered]"
 UNDELIVERED_DECLINED = "[clarify prompt could not be delivered: destination refused]"
-# No status adapter (a run whose chat surface is gone): shares the ``[clarify prompt could not be
-# delivered`` prefix every consumer already treats as a non-answer
-# (agent/context_compressor.py::_CLARIFY_NON_RESPONSE_PREFIXES).
+# No status adapter (a run whose chat surface is gone).
 UNDELIVERED_NO_SURFACE = "[clarify prompt could not be delivered: no chat surface]"
 
 # Seconds a scheduled card send may take before it is classified ``ambiguous`` (possibly posted).

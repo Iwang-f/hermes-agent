@@ -346,25 +346,13 @@ export const estimateRows = (text: string, w: number, compact = false) => {
 /**
  * Render an unanswered clarify prompt (timed out, or cancelled with Esc/Ctrl+C)
  * as a persistent transcript block.  The live `ClarifyPrompt` overlay is torn
- * down the moment the turn settles, so without this the question + options
- * vanish from the screen while the agent's follow-up still refers to "the
- * options above".  Mirrors the option formatting in ClarifyPrompt (the same
- * 1-based numbered list) so the persisted record reads identically to what was
- * on screen.  `reason` states why the prompt ended ("timed out", "cancelled").
+ * down the moment the turn settles, so without this the questions vanish from
+ * the screen while the agent's follow-up still refers to them.  Every question
+ * sits on its own line, answered ones keeping their locked answer (partials
+ * survive a timeout server-side, so the record must show what was actually
+ * sent).  `reason` states why the prompt ended ("timed out", "cancelled").
  */
-export const formatAbandonedClarify = (question: string, choices: string[] | null, reason: string) => {
-  const head = t('libText.text.clarifyHead', question.trim())
-  const opts = (choices ?? []).map((c, i) => `  ${i + 1}. ${c}`)
-
-  return [head, ...opts, `  ${t('libText.text.clarifyNoSelection', reason)}`].join('\n')
-}
-
-/**
- * Batch counterpart of `formatAbandonedClarify`: every question on its own
- * line, answered ones keeping their locked answer (partials survive a
- * timeout server-side, so the record must show what was actually sent).
- */
-export const formatAbandonedClarifyBatch = (
+export const formatAbandonedClarify = (
   questions: { qid: string; question: string }[],
   answers: Record<string, string>,
   reason: string
@@ -378,20 +366,20 @@ export const formatAbandonedClarifyBatch = (
   })
 
   return [
-    t('libText.text.clarifyBatchHead', questions.length),
+    t('libText.text.clarifyHead', questions.length),
     ...lines,
-    `  ${t('libText.text.clarifyBatchReason', reason)}`
+    `  ${t('libText.text.clarifyReason', reason)}`
   ].join('\n')
 }
 
 /**
- * Cursor/draft restore for re-visiting an answered batch clarify question
+ * Cursor/draft restore for re-visiting an answered clarify question
  * (Tab/Shift-Tab): a choice answer puts the cursor back on its row; an
  * answer that matches no choice was typed via Other, so the cursor lands on
  * the Other row (index = choices.length) with the text staged for editing.
  * Unanswered questions restore to a clean cursor.
  */
-export const clarifyBatchRevisitState = (
+export const clarifyRevisitState = (
   choices: readonly string[],
   answer: string | undefined
 ): { custom: string; sel: number } => {
@@ -406,6 +394,16 @@ export const clarifyBatchRevisitState = (
   }
 
   return { custom: answer, sel: choices.length > 0 ? choices.length : 0 }
+}
+
+export const clarifyAnswerText = (answer: string) => {
+  try {
+    const parsed: unknown = JSON.parse(answer)
+
+    return Array.isArray(parsed) ? parsed.join(', ') : answer
+  } catch {
+    return answer
+  }
 }
 
 export const flat = (r: Record<string, string[]>) => Object.values(r).flat()

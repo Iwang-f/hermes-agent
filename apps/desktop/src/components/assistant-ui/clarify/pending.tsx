@@ -1,7 +1,7 @@
 'use client'
 
 import { useStore } from '@nanostores/react'
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Loader } from '@/components/ui/loader'
@@ -15,20 +15,21 @@ import { notifyError } from '@/store/notifications'
 import { forgetServerRequest, respondToServerRequest } from '@/store/server-requests'
 import { requestForOwnedSession } from '@/store/session-states'
 
-import { BatchQuestionBlock, emptyStage } from './core/question-block'
+import { emptyStage, QuestionBlock } from './core/question-block'
 import { CLARIFY_ICON_CLASS, ClarifyShell } from './core/shell'
+import { useClarifyKeys } from './core/use-clarify-keys'
 import type { ClarifyArgs } from './parse'
 import { handleClarifySubmitShortcut } from './submit-shortcut'
 import { UndeliveredNotice } from './undelivered-notice'
 
 /** Live batch card: all questions at once, staged locally, ONE confirm.
  * Picks and drafts stay in component state — nothing reaches the server
- * until every question has a staged answer and the user presses the single
+ * until the user presses the single
  * "Confirm and continue" button, which sends the per-question locks
  * back-to-back and completes the batch. Staged answers stay editable up to
  * that moment. The per-question wire protocol is unchanged (the TUI/CLI
  * still lock incrementally); this card just batches its locks at the end. */
-export function ClarifyToolBatchPending({
+export function ClarifyToolPending({
   fromArgs,
   onAnswered,
   request,
@@ -86,7 +87,7 @@ export function ClarifyToolBatchPending({
       for (const question of questions) {
         const answer = lockedAnswers[question.qid]
 
-        if (answer === undefined || next[question.qid]) {
+        if (answer === undefined || answer === null || next[question.qid]) {
           continue
         }
 
@@ -140,7 +141,7 @@ export function ClarifyToolBatchPending({
   )
 
   const answeredCount = questions.filter(q => stagedAnswer(q) !== null).length
-  const allStaged = answeredCount === questions.length
+  const canConfirm = answeredCount > 0
 
   const confirmAll = useCallback(async () => {
     if (!request || !gateway) {
@@ -169,7 +170,7 @@ export function ClarifyToolBatchPending({
           gateway.request.bind(gateway) as typeof gateway.request,
           'clarify.lock',
           {
-            answer: answer ?? '',
+            answer,
             question_id: question.qid,
             request_id: request.requestId
           }
@@ -180,7 +181,7 @@ export function ClarifyToolBatchPending({
 
       triggerHaptic('submit')
       onAnswered()
-      // tool.complete lands next → ClarifyToolBatchSettled.
+      // tool.complete lands next → ClarifyToolSettled.
       clearClarifyRequest(request.requestId, request.sessionId)
     } catch (error) {
       notifyError(error, copy.sendFailed)
@@ -224,18 +225,36 @@ export function ClarifyToolBatchPending({
 
     // A response with no `answers` is the cancel-all (the plain Esc path).
     respondToServerRequest(request.requestId, {})
-  }, [gateway, onAnswered, request])
+  }, [onAnswered, request])
 
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
 
-      if (ready && allStaged) {
+      if (ready && canConfirm) {
         void confirmAll()
       }
     },
-    [allStaged, confirmAll, ready]
+    [canConfirm, confirmAll, ready]
   )
+
+  const clearStage = useCallback((question: ClarifyQuestion) => {
+    setStaged(current => ({ ...current, [question.qid]: emptyStage }))
+  }, [])
+
+  const isStaged = useCallback((question: ClarifyQuestion) => stagedAnswer(question) !== null, [stagedAnswer])
+
+  const formRef = useRef<HTMLFormElement | null>(null)
+
+  const keys = useClarifyKeys({
+    enabled: ready && !submitting,
+    formRef,
+    isStaged,
+    onClear: clearStage,
+    onConfirm: () => void confirmAll(),
+    onToggle: toggleChoice,
+    questions
+  })
 
   const disabled = submitting || !ready
 
@@ -253,8 +272,10 @@ export function ClarifyToolBatchPending({
       className="my-1.5 grid gap-4"
       data-clarify-batch={questions.length}
       data-clarify-batch-preview={ready ? undefined : ''}
+      data-clarify-choices={ready ? questions[keys.activeQuestion]?.choices?.length || undefined : undefined}
       onKeyDownCapture={handleClarifySubmitShortcut}
       onSubmit={handleSubmit}
+      ref={formRef}
     >
       {ready || undelivered ? null : (
         <span className="sr-only" role="status">
@@ -269,13 +290,15 @@ export function ClarifyToolBatchPending({
           <MessageQuestion aria-hidden className={CLARIFY_ICON_CLASS} />
         </div>
         {undelivered ? <UndeliveredNotice /> : null}
-        {questions.map(question => (
-          <BatchQuestionBlock
+        {questions.map((question, index) => (
+          <QuestionBlock
+            cursor={ready && keys.activeQuestion === index ? keys.cursorRow : null}
             disabled={disabled}
             key={question.qid}
-            locked={false}
+            onActivate={() => keys.focusQuestion(index)}
             onDraft={value => draftFor(question, value)}
-            onToggle={choice => toggleChoice(question, choice)}
+            onOtherFocus={() => keys.onOtherFocus(index)}
+            onPick={choiceIndex => keys.pick(index, choiceIndex)}
             question={question}
             staged={stageFor(question.qid)}
           />
@@ -287,7 +310,7 @@ export function ClarifyToolBatchPending({
           <Button disabled={disabled} onClick={() => void cancelAll()} size="xs" type="button" variant="text">
             {copy.skip}
           </Button>
-          <Button disabled={disabled || !allStaged} size="xs" type="submit">
+          <Button disabled={disabled || !canConfirm} size="xs" type="submit">
             {submitting ? (
               <Loader2 className="animate-spin" />
             ) : (
