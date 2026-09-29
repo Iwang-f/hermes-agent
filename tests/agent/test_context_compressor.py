@@ -240,7 +240,7 @@ class TestSummarizeToolResultClarify:
 
         summary = _summarize_tool_result("clarify", "{}", content)
 
-        assert summary == '[clarify] user responded: ["Keep the fields until ratification."]'
+        assert summary == '[clarify] user responded: "Keep the fields until ratification."'
 
     def test_preserves_batch_multi_select_and_skips_empties(self):
         """A partially-answered batch (multi_select + a skipped question) still surfaces every real decision."""
