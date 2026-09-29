@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { messages } from '../i18n/runtime.js'
 import { useT } from '../i18n/useT.js'
-import { clarifyRevisitState } from '../lib/text.js'
+import { clarifyAnswerText, clarifyRevisitState } from '../lib/text.js'
 import type { Theme } from '../theme.js'
 import type { ApprovalReq, ClarifyReq, ConfirmReq } from '../types.js'
 
@@ -155,7 +155,7 @@ export function ClarifyPrompt({ cols = 80, onCancel, onQuestionAnswer, req, t }:
   const [picked, setPicked] = useState<string[]>([])
   const questions = req.questions
 
-  // ── A-compact state: status list + one expanded active question.
+  // ── Batch (A-compact) state: status list + one expanded active question.
   // `active` walks the QUESTION list (Tab/Shift-Tab cycle it, any order);
   // `sel` is reused as the cursor within the active question's choice rows.
   const answers = req.answers ?? {}
@@ -165,16 +165,21 @@ export function ClarifyPrompt({ cols = 80, onCancel, onQuestionAnswer, req, t }:
   const moveActive = (delta: number) => {
     const next = (active + delta + questions.length) % questions.length
     const question = questions[next]
+
     // Re-visit restore, same model as the CLI panel: a choice answer puts
     // the cursor back on its row; a typed answer lands on Other with the
     // text staged so Enter edits it instead of retyping.
-    const restored = clarifyRevisitState(question?.choices ?? [], question ? answers[question.qid] : undefined)
+    const restored = clarifyRevisitState(
+      question?.choices ?? [],
+      question ? answers[question.qid] : undefined,
+      question?.multiSelect
+    )
 
     setActive(next)
     setSel(restored.sel)
     setCustom(restored.custom)
     setTyping(false)
-    setPicked([])
+    setPicked(restored.picked)
   }
 
   // After a lock the overlay is re-patched with the new answers map — jump
@@ -334,7 +339,7 @@ export function ClarifyPrompt({ cols = 80, onCancel, onQuestionAnswer, req, t }:
               // current answers stay readable while Tab walks the list.
               <Box paddingLeft={2}>
                 <Text color={answer ? t.color.ok : t.color.muted} italic={!answer}>
-                  {answer || T.prompt.clarify.skipped}
+                  {answer ? clarifyAnswerText(answer, q.multiSelect) : T.prompt.clarify.skipped}
                 </Text>
               </Box>
             ) : null}

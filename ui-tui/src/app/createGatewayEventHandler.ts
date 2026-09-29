@@ -472,8 +472,8 @@ export function createGatewayEventHandler(ctx: GatewayEventHandlerContext): (ev:
   // to them.  The reliable signal is the clarify tool's own tool.complete (and,
   // as a backstop, message.complete): at those points the overlay is provably
   // still set on a timeout, but already cleared by answerClarifyQuestion() on a
-  // real answer (so this no-ops there).  Flush the questions + locked answers
-  // into the transcript as a persistent system line, then clear the overlay.
+  // real answer (so this no-ops there).  Flush the question into the
+  // transcript as a persistent system line, then clear the overlay.
   const flushAbandonedClarify = () => {
     const { clarify } = getOverlayState()
 
@@ -1291,7 +1291,7 @@ export function createGatewayEventHandler(ctx: GatewayEventHandlerContext): (ev:
         // The clarify tool finishing with its overlay still live means it was
         // abandoned (backend _block timed out, empty answer). A real answer
         // clears the overlay in answerClarifyQuestion() before this fires, so
-        // this no-ops there. Persist the questions so they don't vanish.
+        // this no-ops there.
         if (!ev.payload) {
           return
         }

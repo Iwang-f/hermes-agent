@@ -1,7 +1,6 @@
 import type { ServerRequest } from '@hermes/shared/json-rpc-channel'
 
 import { t } from '../i18n/runtime.js'
-import { clarifyAnswerText } from '../lib/text.js'
 import type { ClarifyQuestion } from '../types.js'
 
 import { patchOverlayState } from './overlayStore.js'
@@ -65,10 +64,6 @@ export function createServerRequestHandler(ctx: ServerRequestHandlerContext): (r
                 Object.entries(p.answers as Record<string, unknown>)
                   .map(([qid, answer]): [string, unknown] => [qid, answer === null ? '' : answer])
                   .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
-                  .map(([qid, answer]) => [
-                    qid,
-                    questions.find(q => q.qid === qid)?.multiSelect ? clarifyAnswerText(answer) : answer
-                  ])
               )
             : {}
 

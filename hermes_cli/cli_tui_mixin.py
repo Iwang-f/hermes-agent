@@ -458,7 +458,7 @@ class CLITuiMixin:
                 time.sleep(0.2)
 
     def _get_clarify_display_fragments(self):
-        """Batch clarify panel: "N questions" header, one status line per question
+        """Batch (multi-question) clarify panel: "N questions" header, one status line per question
         (✓ answered → answer / ▸ active / · pending), and the active question's numbered choices
         (+ Other) expanded beneath its status line."""
         from cli import _panel_box_width, _wrap_panel_text

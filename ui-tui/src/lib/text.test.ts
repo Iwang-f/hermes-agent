@@ -49,19 +49,19 @@ describe('formatAbandonedClarify', () => {
 
 describe('clarifyRevisitState', () => {
   it('restores the cursor onto a choice answer', () => {
-    expect(clarifyRevisitState(['red', 'blue'], 'blue')).toEqual({ custom: '', sel: 1 })
+    expect(clarifyRevisitState(['red', 'blue'], 'blue')).toEqual({ custom: '', picked: [], sel: 1 })
   })
 
   it('stages a typed answer on the Other row for editing', () => {
-    expect(clarifyRevisitState(['red', 'blue'], 'chartreuse')).toEqual({ custom: 'chartreuse', sel: 2 })
+    expect(clarifyRevisitState(['red', 'blue'], 'chartreuse')).toEqual({ custom: 'chartreuse', picked: [], sel: 2 })
   })
 
   it('stages a typed answer for an open-ended question (no choices)', () => {
-    expect(clarifyRevisitState([], 'free text')).toEqual({ custom: 'free text', sel: 0 })
+    expect(clarifyRevisitState([], 'free text')).toEqual({ custom: 'free text', picked: [], sel: 0 })
   })
 
   it('resets cleanly for unanswered and empty answers', () => {
-    expect(clarifyRevisitState(['red'], undefined)).toEqual({ custom: '', sel: 0 })
-    expect(clarifyRevisitState(['red'], '')).toEqual({ custom: '', sel: 0 })
+    expect(clarifyRevisitState(['red'], undefined)).toEqual({ custom: '', picked: [], sel: 0 })
+    expect(clarifyRevisitState(['red'], '')).toEqual({ custom: '', picked: [], sel: 0 })
   })
 })

@@ -764,9 +764,9 @@ export function useMainApp(gw: GatewayClient) {
       return
     }
 
-    // Esc / Ctrl+C cancel: persist the questions + locked answers as a
-    // system line (not a transient "prompt cancelled" flash) so the prompt
-    // survives on screen as standard output, matching the timeout path.
+    // Esc / Ctrl+C cancel: persist the question as a system line (not a
+    // transient "prompt cancelled" flash) so the prompt survives on screen as
+    // standard output, matching the timeout path.
     appendMessage({
       role: 'system',
       text: formatAbandonedClarify(clarify.questions, clarify.answers ?? {}, 'cancelled')
@@ -774,7 +774,7 @@ export function useMainApp(gw: GatewayClient) {
     patchOverlayState({ clarify: null })
   }, [appendMessage, overlay.clarify])
 
-  // Lock one answer of a clarify (`clarify.lock` RPC). The overlay stays
+  // Lock one answer of a batch clarify (`clarify.lock` RPC). The overlay stays
   // up until the server reports no remaining questions — the final lock
   // resolves the server request and the turn continues.
   const answerClarifyQuestion = useCallback(
@@ -794,8 +794,7 @@ export function useMainApp(gw: GatewayClient) {
           return
         }
 
-        const multi = clarify.questions.find(q => q.qid === qid)?.multiSelect
-        const answers = { ...(clarify.answers ?? {}), [qid]: multi ? clarifyAnswerText(answer) : answer }
+        const answers = { ...(clarify.answers ?? {}), [qid]: answer }
 
         if (r.status === 'expired') {
           patchOverlayState({ clarify: null })
@@ -824,7 +823,10 @@ export function useMainApp(gw: GatewayClient) {
         appendMessage({
           role: 'user',
           text: clarify.questions
-            .map(q => `${q.question} → ${answers[q.qid]?.trim() ? answers[q.qid] : t('session.main.skipped')}`)
+            .map(
+              q =>
+                `${q.question} → ${answers[q.qid]?.trim() ? clarifyAnswerText(answers[q.qid]!, q.multiSelect) : t('session.main.skipped')}`
+            )
             .join('\n')
         })
         patchUiState({ status: 'running…' })

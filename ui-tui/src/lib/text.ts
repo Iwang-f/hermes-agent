@@ -345,15 +345,13 @@ export const estimateRows = (text: string, w: number, compact = false) => {
 
 /**
  * Render an unanswered clarify prompt (timed out, or cancelled with Esc/Ctrl+C)
- * as a persistent transcript block.  The live `ClarifyPrompt` overlay is torn
- * down the moment the turn settles, so without this the questions vanish from
- * the screen while the agent's follow-up still refers to them.  Every question
- * sits on its own line, answered ones keeping their locked answer (partials
- * survive a timeout server-side, so the record must show what was actually
- * sent).  `reason` states why the prompt ended ("timed out", "cancelled").
+ * as a persistent transcript block.  Every question on its own line, answered
+ * ones keeping their locked answer (partials survive a timeout server-side, so
+ * the record must show what was actually sent).  `reason` states why the
+ * prompt ended ("timed out", "cancelled").
  */
 export const formatAbandonedClarify = (
-  questions: { qid: string; question: string }[],
+  questions: { multiSelect?: boolean; qid: string; question: string }[],
   answers: Record<string, string>,
   reason: string
 ) => {
@@ -361,7 +359,7 @@ export const formatAbandonedClarify = (
     const answer = answers[q.qid]
 
     return answer
-      ? `  ${t('libText.text.clarifyAnswered', q.question, answer)}`
+      ? `  ${t('libText.text.clarifyAnswered', q.question, clarifyAnswerText(answer, q.multiSelect))}`
       : `  ${t('libText.text.clarifyUnanswered', q.question)}`
   })
 
@@ -372,8 +370,18 @@ export const formatAbandonedClarify = (
   ].join('\n')
 }
 
+const clarifyAnswerItems = (answer: string): null | string[] => {
+  try {
+    const parsed: unknown = JSON.parse(answer)
+
+    return Array.isArray(parsed) ? parsed.map(String) : null
+  } catch {
+    return null
+  }
+}
+
 /**
- * Cursor/draft restore for re-visiting an answered clarify question
+ * Cursor/draft restore for re-visiting an answered batch clarify question
  * (Tab/Shift-Tab): a choice answer puts the cursor back on its row; an
  * answer that matches no choice was typed via Other, so the cursor lands on
  * the Other row (index = choices.length) with the text staged for editing.
@@ -381,29 +389,34 @@ export const formatAbandonedClarify = (
  */
 export const clarifyRevisitState = (
   choices: readonly string[],
-  answer: string | undefined
-): { custom: string; sel: number } => {
+  answer: string | undefined,
+  multiSelect = false
+): { custom: string; picked: string[]; sel: number } => {
   if (answer === undefined || answer === '') {
-    return { custom: '', sel: 0 }
+    return { custom: '', picked: [], sel: 0 }
+  }
+
+  const items = multiSelect ? clarifyAnswerItems(answer) : null
+
+  if (items) {
+    const custom = items.filter(item => !choices.includes(item)).join(', ')
+
+    return { custom, picked: items.filter(item => choices.includes(item)), sel: custom ? choices.length : 0 }
   }
 
   const choiceIndex = choices.indexOf(answer)
 
   if (choiceIndex >= 0) {
-    return { custom: '', sel: choiceIndex }
+    return { custom: '', picked: [], sel: choiceIndex }
   }
 
-  return { custom: answer, sel: choices.length > 0 ? choices.length : 0 }
+  return { custom: answer, picked: [], sel: choices.length > 0 ? choices.length : 0 }
 }
 
-export const clarifyAnswerText = (answer: string) => {
-  try {
-    const parsed: unknown = JSON.parse(answer)
+export const clarifyAnswerText = (answer: string, multiSelect?: boolean) => {
+  const items = multiSelect ? clarifyAnswerItems(answer) : null
 
-    return Array.isArray(parsed) ? parsed.join(', ') : answer
-  } catch {
-    return answer
-  }
+  return items ? items.join(', ') : answer
 }
 
 export const flat = (r: Record<string, string[]>) => Object.values(r).flat()
