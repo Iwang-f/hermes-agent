@@ -41,6 +41,9 @@ TEXT_RESOLVED = "resolved"
 TEXT_REJECTED_PROSE = "rejected_prose"
 TEXT_REJECTED_SELECTION = "rejected_selection"
 TEXT_NO_PENDING = "no_pending"
+# A reply of exactly SKIP_WORD resolves the prompt as skipped; SKIPPED is the resolved value.
+SKIP_WORD = "skip"
+SKIPPED = "\x00skipped"
 
 
 def register(clarify_id: str, session_key: str, question: str, choices: Optional[List[str]],
@@ -167,6 +170,8 @@ def _coerce_text_response_detailed(entry: _ClarifyEntry, response: str) -> tuple
     ``awaiting_text`` accept any text; numeric picks and exact labels always resolve; multi-select
     returns a JSON array string (decoded tool-side); one bad token rejects the whole reply."""
     text = str(response).strip()
+    if text.casefold() == SKIP_WORD:
+        return SKIPPED, None
     if not entry.choices:
         return text, None
     if entry.multi_select:
