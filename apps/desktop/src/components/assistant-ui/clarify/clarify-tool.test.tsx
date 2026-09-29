@@ -15,7 +15,9 @@ import { $profiles } from '@/store/profile'
 import { hasOpenServerRequest, rememberServerRequest, resetServerRequestsForTests } from '@/store/server-requests'
 import { $activeSessionId, _resetSessionOwnerHintsForTests, setSessionOwnerHint } from '@/store/session'
 
-import { ClarifyTool, readClarifyBatchResult, readClarifyResult } from './clarify-tool'
+import { readClarifyBatchResult, readClarifyResult } from './parse'
+
+import { ClarifyTool } from './index'
 
 // The OWNER-socket seam (`requestForOwnedSession` → `requestForSessionProfile`
 // → here). Mocked so the real owner ladder still runs against real fixtures and
